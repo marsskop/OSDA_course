@@ -1,4 +1,5 @@
 import time
+import os
 from typing import Iterator, List, Collection, Callable
 
 import pandas as pd
@@ -16,6 +17,8 @@ def load_data(df_name: str) -> pd.DataFrame:
     """Generalized function to load datasets in the form of pandas.DataFrame"""
     if df_name == 'tic_tac_toe':
         return load_tic_tac_toe()
+    elif df_name == 'smoking':
+        return load_smoking()
 
     raise ValueError(f'Unknown dataset name: {df_name}')
 
@@ -33,20 +36,30 @@ def load_tic_tac_toe() -> pd.DataFrame:
     df['Class'] = [x == 'positive' for x in df['Class']]
     return df
 
+def load_smoking() -> pd.DataFrame:
+    """Load smoking dataset from UCI repository"""
+    file_path = os.path.expanduser('~/personal/uni/datasets/smoking/smoking.csv')
+    df = pd.read_csv(file_path)
+    df.drop('ID', inplace=True, axis=1)
+    df.rename(columns = {'height(cm)': 'height_cm', 'weight(kg)': 'weight_kg', 'waist(cm)': 'waist_cm', 'eyesight(left)': 'eyesight_left', 'eyesight(right)': 'eyesight_right', 'hearing(left)': 'hearing_left', 'hearing(right)': 'hearing_right', 'fasting blood sugar': 'fasting_blood_sugar', 'Cholesterol': 'cholesterol', 'HDL': 'hdl', 'LDL': 'ldl', 'Urine protein': 'urine_protein', 'serum creatinine': 'serum_creatinine', 'AST': 'ast', 'ALT': 'alt', 'Gtp': 'gtp', 'dental caries': 'dental_caries'}, inplace=True)
+    return df
+
 
 def binarize_X(X: pd.DataFrame) -> 'pd.DataFrame[bool]':
     """Scale values from X into pandas.DataFrame of binary values"""
-    dummies = [pd.get_dummies(X[f], prefix=f, prefix_sep=': ') for f in X.columns]
+    X_bin = X.copy(deep=True)
+    for f in X_bin.columns:
+        if X_bin[f].dtypes == 'int64' or X_bin[f].dtypes == 'float64':
+            X_bin[f] = pd.qcut(X_bin[f], q=3, duplicates='drop')
+    dummies = [pd.get_dummies(X_bin[f], prefix=f, prefix_sep=': ') for f in X_bin.columns]
     X_bin = pd.concat(dummies, axis=1).astype(bool)
     return X_bin
-
 
 def predict_with_generators(
         x: set, X_train: List[set], Y_train: List[bool],
         min_cardinality: int = 1
 ) -> bool:
     """Lazy prediction for ``x`` based on training data ``X_train`` and ``Y_train``
-
     Parameters
     ----------
     x : set
@@ -57,7 +70,6 @@ def predict_with_generators(
         List of labels of training examples
     min_cardinality: int
         Minimal size of an intersection required to count for counterexamples
-
     Returns
     -------
     prediction: bool
@@ -99,7 +111,6 @@ def predict_array(
         predict_func: PREDICTION_FUNCTION_HINT = predict_with_generators
 ) -> Iterator[bool]:
     """Predict the labels of multiple examples from ``X``
-
     Parameters
     ----------
     X: List[set]
@@ -117,7 +128,6 @@ def predict_array(
     predict_func: <see PREDICTION_FUNCTION_HINT defined in this file>
         A function to make prediction for each specific example from ``X``.
         The default prediction function is ``predict_with_generator`` (considered as baseline for the home work).
-
     Returns
     -------
     prediction: Iterator
@@ -135,7 +145,6 @@ def predict_array(
 
 def apply_stopwatch(iterator: Iterator):
     """Measure run time of each iteration of ``iterator``
-
     The function can be applied e.g. for the output of ``predict_array`` function
     """
     outputs = []
